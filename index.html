@@ -6,13 +6,14 @@ import {
 
 // --- FIREBASE IMPORTS ---
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, onValue, set } from "firebase/database";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import { getFirestore, doc, onSnapshot, setDoc } from "firebase/firestore";
 
-// --- FIREBASE CONFIGURATION (DATA ANDA) ---
+// --- FIREBASE CONFIGURATION ---
+// Ganti dengan config Anda jika berbeda, tapi ini sesuai data yang Anda kirim
 const firebaseConfig = {
   apiKey: "AIzaSyBw0UToMgSNFgyARLWpjoLGbh9HK6-MrcY",
   authDomain: "kelompokprsetasi.firebaseapp.com",
-  databaseURL: "https://kelompokprsetasi-default-rtdb.firebaseio.com",
   projectId: "kelompokprsetasi",
   storageBucket: "kelompokprsetasi.firebasestorage.app",
   messagingSenderId: "678793784086",
@@ -22,11 +23,11 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 // --- DATA DEFAULT (LENGKAP) ---
-// Data ini akan digunakan jika database di Firebase masih kosong/belum ada isinya.
-
+// Data ini dipakai sebagai cadangan jika Database Kosong
 const INITIAL_TRANSPORT_DATA = [
   {
     id: "t1",
@@ -150,7 +151,6 @@ const INITIAL_TRADE_DATA = [
 
 // --- COMPONENTS ---
 
-// 1. LOGIN COMPONENT
 const LoginView = ({ onLogin, onBack }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -158,7 +158,6 @@ const LoginView = ({ onLogin, onBack }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // HARDCODED CREDENTIALS
     if (username === 'admin' && password === 'admin123') {
       onLogin();
     } else {
@@ -216,7 +215,6 @@ const LoginView = ({ onLogin, onBack }) => {
   );
 };
 
-// 2. ADMIN DASHBOARD COMPONENT
 const AdminDashboard = ({ 
   transportData, updateTransportData, 
   tradeData, updateTradeData, 
@@ -225,12 +223,10 @@ const AdminDashboard = ({
 }) => {
   const [activeTab, setActiveTab] = useState('transport');
 
-  // Helper untuk update data ke Parent & Firebase
   const handleUpdateGroup = (prodi, index, field, value) => {
     const newData = prodi === 'transport' ? [...transportData] : [...tradeData];
     newData[index][field] = value;
     
-    // Auto status update logic
     if (field === 'topic') {
       newData[index].status = value.trim() === '' ? 'missing' : 'complete';
     }
@@ -414,7 +410,6 @@ const AdminDashboard = ({
       </div>
 
       <div className="max-w-4xl mx-auto p-4 mt-6">
-        {/* Deadline Editor */}
         <div className="bg-white p-6 rounded-xl shadow-sm mb-8">
           <h2 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
             <Clock size={20} className="text-blue-600" /> Pengaturan Deadline
@@ -427,7 +422,6 @@ const AdminDashboard = ({
           <p className="text-xs text-slate-400 mt-2">Teks ini akan muncul di banner merah bagian atas. Perubahan akan tersimpan otomatis.</p>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-4 mb-6 border-b border-slate-300">
           <button 
             onClick={() => setActiveTab('transport')}
@@ -443,7 +437,6 @@ const AdminDashboard = ({
           </button>
         </div>
 
-        {/* Content */}
         {activeTab === 'transport' ? (
           <RenderGroupEditor data={transportData} prodi="transport" />
         ) : (
@@ -454,7 +447,6 @@ const AdminDashboard = ({
   );
 };
 
-// 3. PUBLIC VIEW COMPONENT (Original Infographic)
 const PublicView = ({ transportData, tradeData, deadlineInfo, onLoginClick, loading }) => {
   const GroupCard = ({ group }) => (
     <div className={`rounded-xl shadow-lg overflow-hidden border-2 transition-transform hover:scale-[1.01] ${group.status === 'missing' ? 'border-red-500 bg-red-50' : 'border-blue-100 bg-white'}`}>
@@ -523,7 +515,6 @@ const PublicView = ({ transportData, tradeData, deadlineInfo, onLoginClick, load
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 relative">
-      {/* Login Button (Hidden in plain sight) */}
       <button 
         onClick={onLoginClick} 
         className="fixed bottom-4 right-4 bg-slate-200 p-2 rounded-full text-slate-400 hover:bg-slate-300 hover:text-slate-600 z-50 transition-colors"
@@ -532,7 +523,6 @@ const PublicView = ({ transportData, tradeData, deadlineInfo, onLoginClick, load
         <Lock size={16} />
       </button>
 
-      {/* Alert Banner */}
       <div className="bg-red-600 text-white px-4 py-3 shadow-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
           <div className="flex items-center gap-3">
@@ -602,75 +592,105 @@ const PublicView = ({ transportData, tradeData, deadlineInfo, onLoginClick, load
   );
 };
 
-// 4. MAIN APP CONTROLLER
 const App = () => {
-  // --- STATE MANAGEMENT ---
   const [view, setView] = useState('public'); 
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
   
-  // Data States
   const [transportData, setTransportData] = useState([]);
   const [tradeData, setTradeData] = useState([]);
   const [deadlineInfo, setDeadlineInfo] = useState("Loading deadline...");
 
-  // --- FIREBASE LISTENERS (READ) ---
+  // --- SOLUSI TAMPILAN: AUTO-INJECT TAILWIND ---
+  // Script ini akan otomatis memasang Tailwind CSS jika belum ada di browser
   useEffect(() => {
-    const transportRef = ref(db, 'transportData');
-    const tradeRef = ref(db, 'tradeData');
-    const deadlineRef = ref(db, 'deadlineInfo');
+    if (!document.querySelector('script[src*="tailwindcss"]')) {
+      const script = document.createElement('script');
+      script.src = "https://cdn.tailwindcss.com";
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  }, []);
 
-    const unsubscribeTransport = onValue(transportRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setTransportData(data);
+  useEffect(() => {
+    // Auth First!
+    const initAuth = async () => {
+      await signInAnonymously(auth);
+    };
+    initAuth();
+    
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    // Only fetch data if user is authenticated (anonymous is fine)
+    if (!user) return;
+
+    // Use Doc References for Single-Document Storage pattern (simpler for this use case)
+    const transportRef = doc(db, 'presentations', 'transport');
+    const tradeRef = doc(db, 'presentations', 'trade');
+    const deadlineRef = doc(db, 'presentations', 'metadata');
+
+    const unsubscribeTransport = onSnapshot(transportRef, (snapshot) => {
+      if (snapshot.exists() && snapshot.data().items) {
+        setTransportData(snapshot.data().items);
       } else {
-        // Jika DB kosong (pertama kali), gunakan data default
         setTransportData(INITIAL_TRANSPORT_DATA);
       }
     });
 
-    const unsubscribeTrade = onValue(tradeRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setTradeData(data);
+    const unsubscribeTrade = onSnapshot(tradeRef, (snapshot) => {
+      if (snapshot.exists() && snapshot.data().items) {
+        setTradeData(snapshot.data().items);
       } else {
         setTradeData(INITIAL_TRADE_DATA);
       }
     });
 
-    const unsubscribeDeadline = onValue(deadlineRef, (snapshot) => {
-      const data = snapshot.val();
-      setDeadlineInfo(data || "Deadline: Pertemuan Speaking & Presentation Ke-12 (LMS)");
-      setLoading(false); // Data selesai dimuat
+    const unsubscribeDeadline = onSnapshot(deadlineRef, (snapshot) => {
+      if (snapshot.exists() && snapshot.data().text) {
+        setDeadlineInfo(snapshot.data().text);
+      } else {
+        setDeadlineInfo("Deadline: Pertemuan Speaking & Presentation Ke-12 (LMS)");
+      }
+      setLoading(false);
+    }, (error) => {
+        console.error("Error fetching deadline:", error);
+        setLoading(false); // Stop loading on error
     });
 
-    // Cleanup listeners
     return () => {
       unsubscribeTransport();
       unsubscribeTrade();
       unsubscribeDeadline();
     };
-  }, []);
+  }, [user]);
 
-  // --- FIREBASE WRITERS (UPDATE) ---
-  const updateTransportData = (newData) => {
-    // Optimistic Update (Update UI langsung biar cepat)
+  const updateTransportData = async (newData) => {
     setTransportData(newData); 
-    // Save to Firebase
-    set(ref(db, 'transportData'), newData);
+    if (user) {
+        await setDoc(doc(db, 'presentations', 'transport'), { items: newData });
+    }
   };
 
-  const updateTradeData = (newData) => {
+  const updateTradeData = async (newData) => {
     setTradeData(newData);
-    set(ref(db, 'tradeData'), newData);
+    if (user) {
+        await setDoc(doc(db, 'presentations', 'trade'), { items: newData });
+    }
   };
 
-  const updateDeadlineInfo = (newText) => {
+  const updateDeadlineInfo = async (newText) => {
     setDeadlineInfo(newText);
-    set(ref(db, 'deadlineInfo'), newText);
+    if (user) {
+        await setDoc(doc(db, 'presentations', 'metadata'), { text: newText });
+    }
   };
 
-  // View Routing
   if (view === 'login') {
     return <LoginView onLogin={() => setView('admin')} onBack={() => setView('public')} />;
   }
