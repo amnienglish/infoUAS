@@ -1,0 +1,703 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  AlertTriangle, Calendar, CheckCircle, Users, BookOpen, User, 
+  Clock, AlertCircle, Lock, Edit3, Trash2, Plus, X, LogOut, Loader
+} from 'lucide-react';
+
+// --- FIREBASE IMPORTS ---
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, onValue, set } from "firebase/database";
+
+// --- FIREBASE CONFIGURATION (DATA ANDA) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyBw0UToMgSNFgyARLWpjoLGbh9HK6-MrcY",
+  authDomain: "kelompokprsetasi.firebaseapp.com",
+  databaseURL: "https://kelompokprsetasi-default-rtdb.firebaseio.com",
+  projectId: "kelompokprsetasi",
+  storageBucket: "kelompokprsetasi.firebasestorage.app",
+  messagingSenderId: "678793784086",
+  appId: "1:678793784086:web:fbdbf8c3b3362e77bc3e37",
+  measurementId: "G-YKXPRXRGVL"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// --- DATA DEFAULT (LENGKAP) ---
+// Data ini akan digunakan jika database di Firebase masih kosong/belum ada isinya.
+
+const INITIAL_TRANSPORT_DATA = [
+  {
+    id: "t1",
+    groupName: "DIGITAL DISRUPTION Trans A",
+    topic: "Fraud & Cybercrime in Digital Payments",
+    description: "OTP theft, phishing, SIM swaps, social engineering. Fraud via WhatsApp, e-commerce, and fintech services.",
+    status: "complete",
+    members: [
+      { name: "Annisa Shifa", nrp: "252604005", role: "" },
+      { name: "Fransiska Febria", nrp: "252604020", role: "" },
+      { name: "Dimas Maulana", nrp: "252604014", role: "" },
+      { name: "Galih Syah", nrp: "252604021", role: "" },
+      { name: "Habib Muhaimin", nrp: "252604023", role: "" }
+    ]
+  },
+  {
+    id: "t2",
+    groupName: "DIBUDAFIDA (Transportasi A)",
+    topic: "Payment Sistem-Traditional Vs Digital payment In Indonesian Markets",
+    description: "",
+    status: "complete",
+    members: [
+      { name: "Dika Amelia Sari S", nrp: "252604012", role: "Design Visual" },
+      { name: "Bunga Viola", nrp: "252604001", role: "Content Developer" },
+      { name: "Dava S", nrp: "252604009", role: "Coordinator" },
+      { name: "Fitto Putra", nrp: "252604019", role: "Q&A Specialist" },
+      { name: "Adittyo", nrp: "252604002", role: "Researcher" }
+    ]
+  },
+  {
+    id: "t3",
+    groupName: "Transportasi B (Digital Disruption)",
+    topic: "Digital Disruption",
+    description: "",
+    status: "complete",
+    members: [
+      { name: "Keicha", nrp: "252604027", role: "Coordinator" },
+      { name: "Kharenia", nrp: "252604028", role: "Content Developer" },
+      { name: "Habib", nrp: "252604046", role: "Visual Designer" },
+      { name: "Farid", nrp: "252604031", role: "Researcher" },
+      { name: "As ad", nrp: "252604043", role: "Q&A Specialist" }
+    ]
+  },
+  {
+    id: "t4",
+    groupName: "Kelompok Dimas Yoga",
+    topic: "", 
+    description: "Topik belum disertakan dalam data.",
+    status: "missing",
+    members: [
+      { name: "Dimas Yoga Tama", nrp: "252604014", role: "Moderator" },
+      { name: "Davan Risandry", nrp: "252604010", role: "Q&A" },
+      { name: "Fausan Steyen Prabowo", nrp: "252504017", role: "Presentase" },
+      { name: "Haikal Rezi Abyantara", nrp: "252604024", role: "Presentase" }
+    ]
+  }
+];
+
+const INITIAL_TRADE_DATA = [
+  {
+    id: "p1",
+    groupName: "JOMOK HATERS",
+    topic: "Cultural Influence",
+    description: "",
+    status: "complete",
+    members: [
+      { name: "Ahmad Farhan Masrury", nrp: "250608002", role: "Content, Visual, Q&A" },
+      { name: "Alfi Shari Rizal", nrp: "250608004", role: "Coordinator, Researcher, Q&A" },
+      { name: "Andronicus Zola Fide", nrp: "250608005", role: "Researcher, Content, Q&A" }
+    ]
+  },
+  {
+    id: "p2",
+    groupName: "Kelompok Regional",
+    topic: "Regional Cooperation",
+    description: "",
+    status: "complete",
+    members: [
+      { name: "Candra Lesmana", nrp: "250608008", role: "Researcher" },
+      { name: "Chika Wahyu Pratmawati", nrp: "250608009", role: "Coordinator & Visual" },
+      { name: "Gita Rizkia Almila Afrianto", nrp: "250608012", role: "Content Developer" }
+    ]
+  },
+  {
+    id: "p3",
+    groupName: "PayMentors",
+    topic: "From Cash to Cashless",
+    description: "",
+    status: "complete",
+    members: [
+      { name: "Barel Sidqi", nrp: "250608007", role: "Researchers, content" },
+      { name: "Muhammad Bintang", nrp: "256301039", role: "Visual designer" },
+      { name: "Risma Aulia N.F", nrp: "250608018", role: "Coordinator, Q&A" }
+    ]
+  },
+  {
+    id: "p4",
+    groupName: "E-commerce Team",
+    topic: "E-commerce Revolution",
+    description: "",
+    status: "complete",
+    members: [
+      { name: "Aulia Fauzan", nrp: "250608006", role: "Researcher" },
+      { name: "Ragil C. Moreno", nrp: "250608017", role: "Content Developer" },
+      { name: "Widia Oktaverani", nrp: "250608020", role: "Coordinator" }
+    ]
+  },
+  {
+    id: "p5",
+    groupName: "Kelompok Ais Yulis",
+    topic: "Competition Between Banks & Fintech",
+    description: "Digital wallets, paylater, fast transfers, SuperApp ecosystem (fairness, regulation, consumer protection).",
+    status: "complete",
+    members: [
+      { name: "Ais Yulis Prastika Sari", nrp: "250608001", role: "Visual, Content" },
+      { name: "Fauzi Tri Wibowo", nrp: "250608011", role: "Researcher" },
+      { name: "Saktya", nrp: "250608019", role: "Coordinator, Q&A" }
+    ]
+  }
+];
+
+// --- COMPONENTS ---
+
+// 1. LOGIN COMPONENT
+const LoginView = ({ onLogin, onBack }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // HARDCODED CREDENTIALS
+    if (username === 'admin' && password === 'admin123') {
+      onLogin();
+    } else {
+      setError('Username atau Password salah!');
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+      <div className="bg-white p-8 rounded-xl shadow-xl w-full max-w-md border border-slate-200">
+        <div className="text-center mb-6">
+          <div className="bg-blue-600 text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock size={24} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800">Admin Login</h2>
+          <p className="text-slate-500 text-sm">Masuk untuk mengedit data presentasi</p>
+        </div>
+        
+        {error && (
+          <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm flex items-center gap-2">
+            <AlertCircle size={16} /> {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+            <input 
+              type="text" 
+              className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="admin"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+            <input 
+              type="password" 
+              className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="admin123"
+            />
+          </div>
+          <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 transition">
+            Masuk Dashboard
+          </button>
+        </form>
+        <button onClick={onBack} className="w-full mt-4 text-slate-500 text-sm hover:underline">
+          &larr; Kembali ke Infografik
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// 2. ADMIN DASHBOARD COMPONENT
+const AdminDashboard = ({ 
+  transportData, updateTransportData, 
+  tradeData, updateTradeData, 
+  deadlineInfo, updateDeadlineInfo, 
+  onLogout 
+}) => {
+  const [activeTab, setActiveTab] = useState('transport');
+
+  // Helper untuk update data ke Parent & Firebase
+  const handleUpdateGroup = (prodi, index, field, value) => {
+    const newData = prodi === 'transport' ? [...transportData] : [...tradeData];
+    newData[index][field] = value;
+    
+    // Auto status update logic
+    if (field === 'topic') {
+      newData[index].status = value.trim() === '' ? 'missing' : 'complete';
+    }
+
+    if (prodi === 'transport') {
+      updateTransportData(newData);
+    } else {
+      updateTradeData(newData);
+    }
+  };
+
+  const handleAddGroup = (prodi) => {
+    const newGroup = {
+      id: Date.now().toString(),
+      groupName: "Nama Kelompok Baru",
+      topic: "",
+      description: "",
+      status: "missing",
+      members: []
+    };
+    if (prodi === 'transport') {
+      updateTransportData([...transportData, newGroup]);
+    } else {
+      updateTradeData([...tradeData, newGroup]);
+    }
+  };
+
+  const handleDeleteGroup = (prodi, index) => {
+    if(!window.confirm("Yakin ingin menghapus kelompok ini?")) return;
+    const newData = prodi === 'transport' ? [...transportData] : [...tradeData];
+    newData.splice(index, 1);
+    
+    if (prodi === 'transport') {
+      updateTransportData(newData);
+    } else {
+      updateTradeData(newData);
+    }
+  };
+
+  const handleUpdateMember = (prodi, groupIndex, memberIndex, field, value) => {
+    const newData = prodi === 'transport' ? [...transportData] : [...tradeData];
+    newData[groupIndex].members[memberIndex][field] = value;
+    
+    if (prodi === 'transport') {
+      updateTransportData(newData);
+    } else {
+      updateTradeData(newData);
+    }
+  };
+
+  const handleAddMember = (prodi, groupIndex) => {
+    const newData = prodi === 'transport' ? [...transportData] : [...tradeData];
+    if(!newData[groupIndex].members) newData[groupIndex].members = [];
+    newData[groupIndex].members.push({ name: "Nama Mahasiswa", nrp: "NRP", role: "Role" });
+    
+    if (prodi === 'transport') {
+      updateTransportData(newData);
+    } else {
+      updateTradeData(newData);
+    }
+  };
+
+  const handleDeleteMember = (prodi, groupIndex, memberIndex) => {
+    const newData = prodi === 'transport' ? [...transportData] : [...tradeData];
+    newData[groupIndex].members.splice(memberIndex, 1);
+    
+    if (prodi === 'transport') {
+      updateTransportData(newData);
+    } else {
+      updateTradeData(newData);
+    }
+  };
+
+  const RenderGroupEditor = ({ data, prodi }) => (
+    <div className="space-y-6">
+      {data && data.map((group, gIndex) => (
+        <div key={group.id || gIndex} className="bg-white p-4 rounded-lg shadow border border-slate-200">
+          <div className="flex justify-between items-start mb-4">
+            <h3 className="font-bold text-slate-700">Kelompok #{gIndex + 1}</h3>
+            <button onClick={() => handleDeleteGroup(prodi, gIndex)} className="text-red-500 hover:text-red-700 p-1">
+              <Trash2 size={18} />
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="text-xs text-slate-500">Nama Kelompok</label>
+              <input 
+                value={group.groupName} 
+                onChange={(e) => handleUpdateGroup(prodi, gIndex, 'groupName', e.target.value)}
+                className="w-full p-2 border rounded text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-500">Status</label>
+              <select 
+                value={group.status} 
+                onChange={(e) => handleUpdateGroup(prodi, gIndex, 'status', e.target.value)}
+                className={`w-full p-2 border rounded text-sm font-bold ${group.status === 'missing' ? 'text-red-600' : 'text-green-600'}`}
+              >
+                <option value="complete">Siap (Complete)</option>
+                <option value="missing">Belum Ada Topik (Missing)</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs text-slate-500">Topik</label>
+              <input 
+                value={group.topic || ''} 
+                onChange={(e) => handleUpdateGroup(prodi, gIndex, 'topic', e.target.value)}
+                placeholder="Masukkan judul topik..."
+                className="w-full p-2 border rounded text-sm"
+              />
+            </div>
+             <div className="md:col-span-2">
+              <label className="text-xs text-slate-500">Deskripsi/Catatan</label>
+              <textarea 
+                value={group.description || ''} 
+                onChange={(e) => handleUpdateGroup(prodi, gIndex, 'description', e.target.value)}
+                placeholder="Deskripsi singkat..."
+                className="w-full p-2 border rounded text-sm h-20"
+              />
+            </div>
+          </div>
+
+          <div className="bg-slate-50 p-3 rounded">
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="text-xs font-bold text-slate-500 uppercase">Anggota Tim</h4>
+              <button onClick={() => handleAddMember(prodi, gIndex)} className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded hover:bg-blue-200">
+                + Tambah Anggota
+              </button>
+            </div>
+            {group.members && group.members.map((member, mIndex) => (
+              <div key={mIndex} className="flex gap-2 mb-2 items-center">
+                <input 
+                  value={member.name} 
+                  onChange={(e) => handleUpdateMember(prodi, gIndex, mIndex, 'name', e.target.value)}
+                  placeholder="Nama"
+                  className="flex-1 p-1 border rounded text-xs"
+                />
+                <input 
+                  value={member.nrp} 
+                  onChange={(e) => handleUpdateMember(prodi, gIndex, mIndex, 'nrp', e.target.value)}
+                  placeholder="NRP"
+                  className="w-24 p-1 border rounded text-xs"
+                />
+                 <input 
+                  value={member.role} 
+                  onChange={(e) => handleUpdateMember(prodi, gIndex, mIndex, 'role', e.target.value)}
+                  placeholder="Role"
+                  className="w-24 p-1 border rounded text-xs"
+                />
+                <button onClick={() => handleDeleteMember(prodi, gIndex, mIndex)} className="text-red-400 hover:text-red-600">
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <button 
+        onClick={() => handleAddGroup(prodi)}
+        className="w-full py-3 border-2 border-dashed border-slate-300 text-slate-500 rounded-lg hover:border-blue-500 hover:text-blue-500 font-bold flex items-center justify-center gap-2"
+      >
+        <Plus size={20} /> Tambah Kelompok Baru
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-100 pb-20">
+      <div className="bg-slate-900 text-white p-4 sticky top-0 z-50 shadow-md">
+        <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Edit3 className="text-blue-400" />
+            <h1 className="font-bold text-lg">Admin Dashboard (Firebase Connected)</h1>
+          </div>
+          <button onClick={onLogout} className="text-sm bg-red-600 px-3 py-1 rounded hover:bg-red-700 flex items-center gap-1">
+            <LogOut size={14} /> Logout
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto p-4 mt-6">
+        {/* Deadline Editor */}
+        <div className="bg-white p-6 rounded-xl shadow-sm mb-8">
+          <h2 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+            <Clock size={20} className="text-blue-600" /> Pengaturan Deadline
+          </h2>
+          <input 
+            value={deadlineInfo}
+            onChange={(e) => updateDeadlineInfo(e.target.value)}
+            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-slate-400 mt-2">Teks ini akan muncul di banner merah bagian atas. Perubahan akan tersimpan otomatis.</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-4 mb-6 border-b border-slate-300">
+          <button 
+            onClick={() => setActiveTab('transport')}
+            className={`pb-2 px-4 font-bold ${activeTab === 'transport' ? 'text-blue-600 border-b-4 border-blue-600' : 'text-slate-500'}`}
+          >
+            S1 Transportasi
+          </button>
+          <button 
+            onClick={() => setActiveTab('trade')}
+            className={`pb-2 px-4 font-bold ${activeTab === 'trade' ? 'text-emerald-600 border-b-4 border-emerald-600' : 'text-slate-500'}`}
+          >
+            S1 Perdagangan Int.
+          </button>
+        </div>
+
+        {/* Content */}
+        {activeTab === 'transport' ? (
+          <RenderGroupEditor data={transportData} prodi="transport" />
+        ) : (
+          <RenderGroupEditor data={tradeData} prodi="trade" />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// 3. PUBLIC VIEW COMPONENT (Original Infographic)
+const PublicView = ({ transportData, tradeData, deadlineInfo, onLoginClick, loading }) => {
+  const GroupCard = ({ group }) => (
+    <div className={`rounded-xl shadow-lg overflow-hidden border-2 transition-transform hover:scale-[1.01] ${group.status === 'missing' ? 'border-red-500 bg-red-50' : 'border-blue-100 bg-white'}`}>
+      <div className={`p-4 ${group.status === 'missing' ? 'bg-red-500 text-white' : 'bg-slate-800 text-white'}`}>
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="font-bold text-lg uppercase tracking-wider">{group.groupName}</h3>
+            <div className="flex items-center gap-2 mt-1">
+              {group.status === 'missing' ? (
+                <span className="bg-white text-red-600 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1">
+                  <AlertTriangle size={12} /> TOPIK KOSONG
+                </span>
+              ) : (
+                <span className="bg-green-500 text-white px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1">
+                  <CheckCircle size={12} /> SIAP
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-5">
+        <div className="mb-4">
+          <h4 className="text-sm text-slate-500 font-semibold mb-1 uppercase flex items-center gap-2">
+            <BookOpen size={16} /> Topik Presentasi
+          </h4>
+          {group.status === 'missing' ? (
+            <div className="p-3 bg-red-100 border border-red-200 rounded text-red-700 font-medium animate-pulse">
+              ⚠️ Belum menentukan topik! Segera lapor.
+            </div>
+          ) : (
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded text-slate-800 font-medium">
+              {group.topic || '-'}
+              {group.description && (
+                <p className="text-xs text-slate-500 mt-1 italic font-normal">{group.description}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <h4 className="text-sm text-slate-500 font-semibold mb-2 uppercase flex items-center gap-2">
+            <Users size={16} /> Anggota Tim
+          </h4>
+          <ul className="space-y-2">
+            {group.members && group.members.map((member, idx) => (
+              <li key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between text-sm border-b border-slate-100 pb-1 last:border-0">
+                <span className="font-medium text-slate-700 flex items-center gap-2">
+                  <User size={12} className="text-slate-400" />
+                  {member.name}
+                  <span className="text-xs text-slate-400 font-normal">({member.nrp})</span>
+                </span>
+                {member.role && (
+                  <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full w-fit mt-1 sm:mt-0">
+                    {member.role}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 relative">
+      {/* Login Button (Hidden in plain sight) */}
+      <button 
+        onClick={onLoginClick} 
+        className="fixed bottom-4 right-4 bg-slate-200 p-2 rounded-full text-slate-400 hover:bg-slate-300 hover:text-slate-600 z-50 transition-colors"
+        title="Admin Login"
+      >
+        <Lock size={16} />
+      </button>
+
+      {/* Alert Banner */}
+      <div className="bg-red-600 text-white px-4 py-3 shadow-md sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-6 h-6 animate-bounce" />
+            <div>
+              <h2 className="font-bold text-lg leading-tight">PERHATIAN: DEADLINE PENGUMPULAN TOPIK</h2>
+              <p className="text-sm text-red-100">Bagi kelompok yang belum ada topik, segera submit data.</p>
+            </div>
+          </div>
+          <div className="bg-white text-red-700 px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-sm">
+            <Clock size={16} />
+            {loading ? "Loading..." : deadlineInfo}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto p-4 md:p-8">
+        <header className="mb-10 text-center">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-2">
+            Jadwal & Topik Presentasi Bahasa Inggris
+          </h1>
+          <p className="text-slate-500 text-lg">Ujian Akhir Semester (UAS)</p>
+          <div className="w-24 h-1 bg-blue-500 mx-auto mt-4 rounded-full"></div>
+        </header>
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+             <Loader className="animate-spin mb-4" size={48} />
+             <p>Mengambil data dari Firebase...</p>
+          </div>
+        ) : (
+          <>
+            <section className="mb-12">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-blue-600 text-white p-2 rounded-lg shadow-sm">
+                  <Calendar size={24} />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800">Prodi S1 Transportasi</h2>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {transportData.map((group, i) => <GroupCard key={group.id || i} group={group} />)}
+              </div>
+            </section>
+
+            <div className="border-t-2 border-dashed border-slate-200 my-8"></div>
+
+            <section className="mb-12">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-emerald-600 text-white p-2 rounded-lg shadow-sm">
+                  <Calendar size={24} />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800">Prodi S1 Perdagangan Internasional</h2>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {tradeData.map((group, i) => <GroupCard key={group.id || i} group={group} />)}
+              </div>
+            </section>
+          </>
+        )}
+
+        <footer className="text-center text-slate-400 text-sm mt-12 py-8 border-t border-slate-200">
+          <p>Dibuat secara otomatis untuk monitoring kelengkapan data UAS Bahasa Inggris.</p>
+          <p className="mt-1">Pastikan nama dan NRP Anda sesuai dengan data di atas.</p>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+// 4. MAIN APP CONTROLLER
+const App = () => {
+  // --- STATE MANAGEMENT ---
+  const [view, setView] = useState('public'); 
+  const [loading, setLoading] = useState(true);
+  
+  // Data States
+  const [transportData, setTransportData] = useState([]);
+  const [tradeData, setTradeData] = useState([]);
+  const [deadlineInfo, setDeadlineInfo] = useState("Loading deadline...");
+
+  // --- FIREBASE LISTENERS (READ) ---
+  useEffect(() => {
+    const transportRef = ref(db, 'transportData');
+    const tradeRef = ref(db, 'tradeData');
+    const deadlineRef = ref(db, 'deadlineInfo');
+
+    const unsubscribeTransport = onValue(transportRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setTransportData(data);
+      } else {
+        // Jika DB kosong (pertama kali), gunakan data default
+        setTransportData(INITIAL_TRANSPORT_DATA);
+      }
+    });
+
+    const unsubscribeTrade = onValue(tradeRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setTradeData(data);
+      } else {
+        setTradeData(INITIAL_TRADE_DATA);
+      }
+    });
+
+    const unsubscribeDeadline = onValue(deadlineRef, (snapshot) => {
+      const data = snapshot.val();
+      setDeadlineInfo(data || "Deadline: Pertemuan Speaking & Presentation Ke-12 (LMS)");
+      setLoading(false); // Data selesai dimuat
+    });
+
+    // Cleanup listeners
+    return () => {
+      unsubscribeTransport();
+      unsubscribeTrade();
+      unsubscribeDeadline();
+    };
+  }, []);
+
+  // --- FIREBASE WRITERS (UPDATE) ---
+  const updateTransportData = (newData) => {
+    // Optimistic Update (Update UI langsung biar cepat)
+    setTransportData(newData); 
+    // Save to Firebase
+    set(ref(db, 'transportData'), newData);
+  };
+
+  const updateTradeData = (newData) => {
+    setTradeData(newData);
+    set(ref(db, 'tradeData'), newData);
+  };
+
+  const updateDeadlineInfo = (newText) => {
+    setDeadlineInfo(newText);
+    set(ref(db, 'deadlineInfo'), newText);
+  };
+
+  // View Routing
+  if (view === 'login') {
+    return <LoginView onLogin={() => setView('admin')} onBack={() => setView('public')} />;
+  }
+
+  if (view === 'admin') {
+    return (
+      <AdminDashboard 
+        transportData={transportData} 
+        updateTransportData={updateTransportData}
+        tradeData={tradeData}
+        updateTradeData={updateTradeData}
+        deadlineInfo={deadlineInfo}
+        updateDeadlineInfo={updateDeadlineInfo}
+        onLogout={() => setView('public')} 
+      />
+    );
+  }
+
+  return (
+    <PublicView 
+      transportData={transportData} 
+      tradeData={tradeData} 
+      deadlineInfo={deadlineInfo}
+      onLoginClick={() => setView('login')}
+      loading={loading}
+    />
+  );
+};
+
+export default App;
