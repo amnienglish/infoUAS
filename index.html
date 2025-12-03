@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   AlertTriangle, Calendar, CheckCircle, Users, BookOpen, User, 
-  Clock, AlertCircle, Lock, Edit3, Trash2, Plus, X, LogOut, Loader
+  Clock, AlertCircle, Lock, Edit3, Trash2, Plus, X, LogOut, Loader, ShieldAlert
 } from 'lucide-react';
 
 // --- FIREBASE IMPORTS ---
@@ -10,7 +10,6 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, onSnapshot, setDoc } from "firebase/firestore";
 
 // --- FIREBASE CONFIGURATION ---
-// Ganti dengan config Anda jika berbeda, tapi ini sesuai data yang Anda kirim
 const firebaseConfig = {
   apiKey: "AIzaSyBw0UToMgSNFgyARLWpjoLGbh9HK6-MrcY",
   authDomain: "kelompokprsetasi.firebaseapp.com",
@@ -27,7 +26,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // --- DATA DEFAULT (LENGKAP) ---
-// Data ini dipakai sebagai cadangan jika Database Kosong
 const INITIAL_TRANSPORT_DATA = [
   {
     id: "t1",
@@ -219,7 +217,8 @@ const AdminDashboard = ({
   transportData, updateTransportData, 
   tradeData, updateTradeData, 
   deadlineInfo, updateDeadlineInfo, 
-  onLogout 
+  onLogout,
+  isGuestMode
 }) => {
   const [activeTab, setActiveTab] = useState('transport');
 
@@ -401,7 +400,12 @@ const AdminDashboard = ({
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Edit3 className="text-blue-400" />
-            <h1 className="font-bold text-lg">Admin Dashboard (Firebase Connected)</h1>
+            <h1 className="font-bold text-lg">Admin Dashboard</h1>
+            {isGuestMode && (
+              <span className="text-xs bg-orange-500 px-2 py-1 rounded flex items-center gap-1">
+                <ShieldAlert size={12} /> Mode Tamu (Akses Publik)
+              </span>
+            )}
           </div>
           <button onClick={onLogout} className="text-sm bg-red-600 px-3 py-1 rounded hover:bg-red-700 flex items-center gap-1">
             <LogOut size={14} /> Logout
@@ -596,38 +600,43 @@ const App = () => {
   const [view, setView] = useState('public'); 
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [isGuestMode, setIsGuestMode] = useState(false);
   
   const [transportData, setTransportData] = useState([]);
   const [tradeData, setTradeData] = useState([]);
   const [deadlineInfo, setDeadlineInfo] = useState("Loading deadline...");
 
-  // --- SOLUSI TAMPILAN: AUTO-INJECT TAILWIND ---
-  // Script ini akan otomatis memasang Tailwind CSS jika belum ada di browser
-  useEffect(() => {
-    if (!document.querySelector('script[src*="tailwindcss"]')) {
-      const script = document.createElement('script');
-      script.src = "https://cdn.tailwindcss.com";
-      script.async = true;
-      document.head.appendChild(script);
-    }
-  }, []);
-
   useEffect(() => {
     // Auth First!
     const initAuth = async () => {
-      await signInAnonymously(auth);
+      try {
+        await signInAnonymously(auth);
+      } catch (error) {
+        // Suppress specific config error from showing as console.error
+        if (error.code === 'auth/configuration-not-found') {
+          console.warn("Auth mode: Guest/Fallback (Anonymous Auth not enabled in Console)");
+        } else {
+           console.error("Auth Error:", error);
+        }
+        // Fallback for public access if Auth fails
+        setUser({ uid: 'guest-fallback', isAnonymous: true });
+        setIsGuestMode(true);
+      }
     };
     initAuth();
     
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+      if (currentUser) {
+        setUser(currentUser);
+        setIsGuestMode(false);
+      }
     });
     
     return () => unsubscribeAuth();
   }, []);
 
   useEffect(() => {
-    // Only fetch data if user is authenticated (anonymous is fine)
+    // Only fetch data if user is authenticated (anonymous is fine) or we used fallback
     if (!user) return;
 
     // Use Doc References for Single-Document Storage pattern (simpler for this use case)
@@ -659,8 +668,11 @@ const App = () => {
       }
       setLoading(false);
     }, (error) => {
-        console.error("Error fetching deadline:", error);
-        setLoading(false); // Stop loading on error
+        // If snapshot fails, use default data locally
+        console.warn("Snapshot error (likely permission or network):", error.message);
+        setTransportData(INITIAL_TRANSPORT_DATA);
+        setTradeData(INITIAL_TRADE_DATA);
+        setLoading(false);
     });
 
     return () => {
@@ -705,6 +717,7 @@ const App = () => {
         deadlineInfo={deadlineInfo}
         updateDeadlineInfo={updateDeadlineInfo}
         onLogout={() => setView('public')} 
+        isGuestMode={isGuestMode}
       />
     );
   }
