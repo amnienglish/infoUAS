@@ -606,19 +606,35 @@ const App = () => {
   const [tradeData, setTradeData] = useState([]);
   const [deadlineInfo, setDeadlineInfo] = useState("Loading deadline...");
 
+  // --- FORCE INJECT TAILWIND CSS (JURUS PAMUNGKAS) ---
   useEffect(() => {
-    // Auth First!
+    // Fungsi ini akan mengecek apakah script Tailwind sudah ada di browser.
+    // Jika belum ada (misal karena index.html gagal memuatnya),
+    // script ini akan menambahkannya secara paksa.
+    const checkForTailwind = () => {
+      const existingScript = document.querySelector('script[src*="cdn.tailwindcss.com"]');
+      if (!existingScript) {
+        console.warn("Tailwind CSS not found, injecting fallback...");
+        const script = document.createElement('script');
+        script.src = "https://cdn.tailwindcss.com";
+        script.async = true;
+        document.head.appendChild(script);
+      }
+    };
+
+    checkForTailwind();
+  }, []);
+
+  useEffect(() => {
     const initAuth = async () => {
       try {
         await signInAnonymously(auth);
       } catch (error) {
-        // Suppress specific config error from showing as console.error
         if (error.code === 'auth/configuration-not-found') {
-          console.warn("Auth mode: Guest/Fallback (Anonymous Auth not enabled in Console)");
+          console.warn("Auth mode: Guest/Fallback");
         } else {
            console.error("Auth Error:", error);
         }
-        // Fallback for public access if Auth fails
         setUser({ uid: 'guest-fallback', isAnonymous: true });
         setIsGuestMode(true);
       }
@@ -636,10 +652,8 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    // Only fetch data if user is authenticated (anonymous is fine) or we used fallback
     if (!user) return;
 
-    // Use Doc References for Single-Document Storage pattern (simpler for this use case)
     const transportRef = doc(db, 'presentations', 'transport');
     const tradeRef = doc(db, 'presentations', 'trade');
     const deadlineRef = doc(db, 'presentations', 'metadata');
@@ -668,8 +682,7 @@ const App = () => {
       }
       setLoading(false);
     }, (error) => {
-        // If snapshot fails, use default data locally
-        console.warn("Snapshot error (likely permission or network):", error.message);
+        console.warn("Snapshot error:", error.message);
         setTransportData(INITIAL_TRANSPORT_DATA);
         setTradeData(INITIAL_TRADE_DATA);
         setLoading(false);
